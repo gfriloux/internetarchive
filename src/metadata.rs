@@ -1,6 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::path::PathBuf;
+use urlencoding::encode;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MetadataFile {
@@ -83,7 +84,8 @@ impl Metadata {
 	  if ! self.file_exist(filename) {
 	    return Err(Error::FileNotFound { filename: filename.to_string() })
 	  }
-    Ok(format!("https://{}{}/{}", self.d1, self.dir, filename))
+	  let url = format!("https://{}{}/{}", self.d1, self.dir, encode(filename));
+    Ok(url)
 	}
 }
 

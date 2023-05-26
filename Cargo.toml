@@ -1,6 +1,6 @@
 [package]
 name = "internet_archive"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "BSD-4-Clause"
 description = "Unofficial archive.org library."
@@ -15,6 +15,7 @@ serde_derive = "1.0.163"
 serde_json = "1.0.96"
 snafu = "0.7.4"
 reqwest = { version = "0.11.18", features = ["blocking"] }
+urlencoding = "2.1.2"
 
 [dev-dependencies]
 dotenv = "0.15.0"
