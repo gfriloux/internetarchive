@@ -66,7 +66,6 @@ impl Metadata {
                     .send()
                     .context(DownloadFailedSnafu { filename: PathBuf::from(&url) })?;
     let s = res.text().context(DownloadFailedSnafu { filename: PathBuf::from(&url) })?;
-    println!("{}", s);
     let metadata: Metadata = serde_json::from_str(&s).context(ParseFailedSnafu)?;
     Ok(metadata)
 	}

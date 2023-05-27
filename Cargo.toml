@@ -1,6 +1,6 @@
 [package]
 name = "internet_archive"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "BSD-4-Clause"
 description = "Unofficial archive.org library."
