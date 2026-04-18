@@ -75,15 +75,25 @@ impl Metadata {
     self.files.iter().any(|file| file.name == filename)
   }
 
-  pub fn fileurl_get(&self, filename: &str) -> Result<String> {
-    // Making sure file exists
+  pub fn fileurl_get(&self, filename: &str) -> Result<Vec<String>> {
     if !self.file_exist(filename) {
       return Err(Error::FileNotFound {
         filename: filename.to_string(),
       });
     }
-    let url = format!("https://{}{}/{}", self.d1, self.dir, encode(filename));
-    Ok(url)
+    let encoded = encode(filename);
+    let mut servers = vec![self.d1.clone(), self.d2.clone()];
+    for s in &self.workable_servers {
+      if *s != self.d1 && *s != self.d2 {
+        servers.push(s.clone());
+      }
+    }
+    Ok(
+      servers
+        .into_iter()
+        .map(|s| format!("https://{}{}/{}", s, self.dir, encoded))
+        .collect(),
+    )
   }
 }
 
@@ -95,7 +105,7 @@ mod tests {
   fn it_works() {
     let metadata = Metadata::get("QuakeIiiArenaDemo").unwrap();
     println!("{:#?}", metadata);
-    let url = metadata.fileurl_get("Q3ADemo.exe").unwrap();
-    println!("URL = {}", url);
+    let urls = metadata.fileurl_get("Q3ADemo.exe").unwrap();
+    println!("URLs = {:#?}", urls);
   }
 }
