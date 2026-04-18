@@ -23,6 +23,8 @@ pub struct MetadataData {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Metadata {
+  #[serde(skip)]
+  pub item: String,
   pub created: u64,
   pub d1: String,
   pub d2: String,
@@ -67,16 +69,24 @@ impl Metadata {
     let s = res.text().context(DownloadFailedSnafu {
       filename: PathBuf::from(&url),
     })?;
-    let metadata: Metadata = serde_json::from_str(&s).context(ParseFailedSnafu)?;
+    let mut metadata: Metadata = serde_json::from_str(&s).context(ParseFailedSnafu)?;
+    metadata.item = item.to_string();
     Ok(metadata)
   }
 
-  pub fn file_exist(&self, filename: &str) -> bool {
+  pub fn torrent_url(&self) -> String {
+    format!(
+      "https://archive.org/download/{}/{}_archive.torrent",
+      self.item, self.item
+    )
+  }
+
+  pub fn file_exists(&self, filename: &str) -> bool {
     self.files.iter().any(|file| file.name == filename)
   }
 
-  pub fn fileurl_get(&self, filename: &str) -> Result<Vec<String>> {
-    if !self.file_exist(filename) {
+  pub fn file_urls(&self, filename: &str) -> Result<Vec<String>> {
+    if !self.file_exists(filename) {
       return Err(Error::FileNotFound {
         filename: filename.to_string(),
       });
@@ -105,7 +115,7 @@ mod tests {
   fn it_works() {
     let metadata = Metadata::get("QuakeIiiArenaDemo").unwrap();
     println!("{:#?}", metadata);
-    let urls = metadata.fileurl_get("Q3ADemo.exe").unwrap();
+    let urls = metadata.file_urls("Q3ADemo.exe").unwrap();
     println!("URLs = {:#?}", urls);
   }
 }
