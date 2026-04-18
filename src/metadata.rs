@@ -118,4 +118,15 @@ mod tests {
     let urls = metadata.file_urls("Q3ADemo.exe").unwrap();
     println!("URLs = {:#?}", urls);
   }
+
+  #[test]
+  fn torrent_url() {
+    let metadata = Metadata::get("QuakeIiiArenaDemo").unwrap();
+    let url = metadata.torrent_url();
+    println!("Torrent URL = {}", url);
+    assert_eq!(
+      url,
+      "https://archive.org/download/QuakeIiiArenaDemo/QuakeIiiArenaDemo_archive.torrent"
+    );
+  }
 }
