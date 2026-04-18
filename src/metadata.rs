@@ -57,9 +57,13 @@ impl Metadata {
     pub fn get(item: &str) -> Result<Metadata> {
         let client = reqwest::blocking::Client::new();
         let url = format!("https://archive.org/metadata/{}", item);
-        let res = client.get(&url).send().context(DownloadFailedSnafu {
-            filename: PathBuf::from(&url),
-        })?;
+        let res = client
+            .get(&url)
+            .send()
+            .and_then(|r| r.error_for_status())
+            .context(DownloadFailedSnafu {
+                filename: PathBuf::from(&url),
+            })?;
         let s = res.text().context(DownloadFailedSnafu {
             filename: PathBuf::from(&url),
         })?;
