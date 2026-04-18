@@ -3,7 +3,7 @@ use snafu::{ResultExt, Snafu};
 use std::path::PathBuf;
 use urlencoding::encode;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct MetadataFile {
   pub name: String,
   pub source: String,
