@@ -128,3 +128,23 @@ impl<'a> Download<'a> {
     Ok(())
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::metadata::Metadata;
+  use std::env::temp_dir;
+
+  #[test]
+  fn fetch_and_verify() {
+    let metadata = Metadata::get("QuakeIiiArenaDemo").unwrap();
+    let download = Download::new(&metadata, "Q3ADemo.exe").unwrap();
+
+    let dest = temp_dir().join("Q3ADemo.exe");
+    download.fetch(&dest, DownloadMethod::Https).unwrap();
+    println!("Downloaded to {}", dest.display());
+
+    download.verify_sha1(&dest).unwrap();
+    println!("SHA1 verified.");
+  }
+}
