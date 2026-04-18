@@ -68,16 +68,7 @@ impl Metadata {
     }
 
     pub fn file_exist(&self, filename: &str) -> bool {
-        let mut result = false;
-        if self
-            .files
-            .clone()
-            .into_iter()
-            .any(|file| file.name.eq(filename))
-        {
-            result = true;
-        }
-        result
+        self.files.iter().any(|file| file.name == filename)
     }
 
     pub fn fileurl_get(&self, filename: &str) -> Result<String> {
