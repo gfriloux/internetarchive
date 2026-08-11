@@ -190,4 +190,31 @@ mod tests {
     download.verify_sha1(&dest).unwrap();
     println!("SHA1 verified.");
   }
+
+  #[test]
+  fn fetch_reports_progress() {
+    let metadata = Metadata::get("QuakeIiiArenaDemo").unwrap();
+    let download = Download::new(&metadata, "Q3ADemo.exe").unwrap();
+
+    let dest = temp_dir().join("Q3ADemo-progress.exe");
+    let mut calls = 0usize;
+    let mut last = 0u64;
+    let mut announced = None;
+    download
+      .fetch_with_progress(&dest, DownloadMethod::Https, |read, total| {
+        calls += 1;
+        last = read;
+        announced = total;
+      })
+      .unwrap();
+
+    println!("{} progress calls, {} bytes read", calls, last);
+    assert!(calls > 1);
+    assert_eq!(download.size(), Some(last));
+    if let Some(total) = announced {
+      assert_eq!(last, total);
+    }
+
+    download.verify_sha1(&dest).unwrap();
+  }
 }
