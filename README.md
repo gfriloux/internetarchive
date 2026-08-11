@@ -7,6 +7,7 @@ Unofficial Rust library for [archive.org](https://archive.org).
 - Fetch item metadata (files list, servers, checksums)
 - Build download URLs for a specific file, across all available servers
 - Download files over HTTPS with automatic server fallback
+- Progress reporting during a download
 - SHA1 checksum verification after download
 
 ## Usage
@@ -48,11 +49,44 @@ download.fetch(dest, DownloadMethod::Https)?;
 download.verify_sha1(dest)?;
 ```
 
+### Follow a download
+
+`fetch_with_progress` calls the callback once per 64 KiB chunk read from the network.
+`total` comes from the response `Content-Length` and is `None` when the server does not
+announce one; `size()` gives the size from the item metadata instead, before the transfer
+starts.
+
+```rust
+let download = Download::new(&metadata, "Q3ADemo.exe")?;
+println!("expecting {:?} bytes", download.size());
+
+download.fetch_with_progress(dest, DownloadMethod::Https, |read, total| {
+    match total {
+        Some(total) => println!("{}%", read * 100 / total),
+        None        => println!("{} bytes", read),
+    }
+})?;
+```
+
+The callback runs on the calling thread, inside the transfer loop — keep it short. If a
+server fails mid-transfer the next one is tried from scratch, so `read` may go back to 0.
+
 ## Changelog
 
-### 0.3.0 (planned)
+### 0.4.0 (planned)
 
 - Torrent download support via `DownloadMethod::Torrent`.
+
+### 0.3.0
+
+- **`Download::fetch_with_progress()` added** — same as `fetch()`, with a
+  `FnMut(u64, Option<u64>)` callback invoked every 64 KiB. `fetch()` is now a call with an
+  empty callback; existing code is unaffected.
+
+- **`Download::size()` added** — the file size announced by the item metadata.
+
+- **`Error::TransferFailed` variant added** — an interrupted body read is now distinct
+  from a failed request, and triggers the same server fallback.
 
 ### 0.2.0 — Breaking changes
 
