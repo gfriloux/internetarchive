@@ -2,9 +2,12 @@ use sha1::{Digest, Sha1};
 use snafu::{ResultExt, Snafu};
 use std::{
   fs::File,
-  io::Read,
+  io::{Read, Write},
   path::{Path, PathBuf},
 };
+
+/// Size of the chunk read from the network before the progress callback is called again.
+const CHUNK_SIZE: usize = 64 * 1024;
 
 use crate::metadata::{Metadata, MetadataFile};
 
@@ -21,6 +24,9 @@ pub enum Error {
 
   #[snafu(display("All servers failed, last error on {}: {}", url, source))]
   DownloadFailed { url: String, source: reqwest::Error },
+
+  #[snafu(display("Transfer interrupted on {}: {}", url, source))]
+  TransferFailed { url: String, source: std::io::Error },
 
   #[snafu(display("IO error on {}: {}", path.display(), source))]
   Io {
@@ -57,14 +63,33 @@ impl<'a> Download<'a> {
     Ok(Self { metadata, file })
   }
 
+  /// Size announced by the item metadata, when it is there.
+  pub fn size(&self) -> Option<u64> {
+    self.file.size.as_deref().and_then(|s| s.parse().ok())
+  }
+
   pub fn fetch(&self, dest: &Path, method: DownloadMethod) -> Result<()> {
+    self.fetch_with_progress(dest, method, |_, _| {})
+  }
+
+  /// `progress(read, total)` is called as the body is read, once per 64 KiB chunk.
+  /// `total` is `None` when the server does not announce a `Content-Length`.
+  ///
+  /// On server fallback the destination file is truncated and `read` restarts from 0,
+  /// so the callback may see the counter go backwards.
+  pub fn fetch_with_progress(
+    &self,
+    dest: &Path,
+    method: DownloadMethod,
+    progress: impl FnMut(u64, Option<u64>),
+  ) -> Result<()> {
     match method {
-      DownloadMethod::Https => self.fetch_https(dest),
+      DownloadMethod::Https => self.fetch_https(dest, progress),
       DownloadMethod::Torrent => Err(Error::NotImplemented),
     }
   }
 
-  fn fetch_https(&self, dest: &Path) -> Result<()> {
+  fn fetch_https(&self, dest: &Path, mut progress: impl FnMut(u64, Option<u64>)) -> Result<()> {
     let urls = self
       .metadata
       .file_urls(&self.file.name)
@@ -76,7 +101,7 @@ impl<'a> Download<'a> {
     let mut last_err = None;
 
     for url in &urls {
-      match Self::download_url(&client, url, dest) {
+      match Self::download_url(&client, url, dest, &mut progress) {
         Ok(()) => return Ok(()),
         Err(e) => last_err = Some(e),
       }
@@ -85,16 +110,34 @@ impl<'a> Download<'a> {
     Err(last_err.unwrap())
   }
 
-  fn download_url(client: &reqwest::blocking::Client, url: &str, dest: &Path) -> Result<()> {
+  fn download_url(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    dest: &Path,
+    progress: &mut impl FnMut(u64, Option<u64>),
+  ) -> Result<()> {
     let mut res = client
       .get(url)
       .send()
       .and_then(|r| r.error_for_status())
       .context(DownloadFailedSnafu { url })?;
+    let total = res.content_length();
     let mut file = File::create(dest).context(IoSnafu { path: dest })?;
-    res
-      .copy_to(&mut file)
-      .context(DownloadFailedSnafu { url })?;
+
+    let mut buffer = vec![0u8; CHUNK_SIZE];
+    let mut read = 0u64;
+    progress(read, total);
+    loop {
+      let n = res.read(&mut buffer).context(TransferFailedSnafu { url })?;
+      if n == 0 {
+        break;
+      }
+      file
+        .write_all(&buffer[..n])
+        .context(IoSnafu { path: dest })?;
+      read += n as u64;
+      progress(read, total);
+    }
     Ok(())
   }
 
